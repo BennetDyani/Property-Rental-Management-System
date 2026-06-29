@@ -1,0 +1,44 @@
+
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: rental_db
+    environment:
+      POSTGRES_DB: rental_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - rental_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rental_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rental_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/rental_ai
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: llama3:8b
+      EMBEDDING_MODEL: nomic-embed-text
+    volumes:
+      - ./:/app
+    ports:
+      - "8888:8888"
+    command: >
+      sh -c "pip install -e . &&
+      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token= --NotebookApp.password="
+
+volumes:
+  rental_db_data:
+
