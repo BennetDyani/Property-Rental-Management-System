@@ -13,7 +13,7 @@ services:
     volumes:
       - rental_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d property_management"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rental_ai"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -27,7 +27,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5433/property_rental_management_system
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/rental_ai
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: llama3:8b
       EMBEDDING_MODEL: nomic-embed-text

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Property Rental Management System"
     environment: str = "development"
-    database_url: str= "postgresql+psycopg://postgres:postgres@localhost:5433/property_rental_management_system"
+    database_url: str= "postgresql+psycopg://postgres:postgres@localhost:5433/rental_ai"
     debug: bool = False
 
 @lru_cache
