@@ -5,3 +5,4 @@ config
 database
 models
 rag
+ui
