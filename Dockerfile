@@ -13,10 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md main.py /app/
+COPY src /app/src
 
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install -e .
 
-EXPOSE 8888
+EXPOSE 8000
 
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=", "--NotebookApp.password="]
+CMD ["python", "main.py"]

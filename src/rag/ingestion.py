@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from langchain_ollama import OllamaEmbeddings
 
+from src.config import settings
 from src.rag.chunking import DocumentChunk, chunk_documents
 from src.rag.document import MultimodalDocument, load_documents
 from src.rag.retriever import MultimodalRetriever
@@ -20,11 +21,13 @@ class DocumentIngestor:
             self,
             retriever: MultimodalRetriever,
             vector_store: VectorStore,
-            embedding_model_name: str = "nomic-embed-text",
-            ollama_base_url: str = "http://localhost:11434"
+            embedding_model_name: str | None = None,
+            ollama_base_url: str | None = None
     ):
         self.retriever = retriever
         self.vector_store = vector_store
+        embedding_model_name = embedding_model_name or settings.embedding_model
+        ollama_base_url = ollama_base_url or settings.ollama_base_url
         self.embedder = OllamaEmbeddings(
             model=embedding_model_name,
             base_url=ollama_base_url

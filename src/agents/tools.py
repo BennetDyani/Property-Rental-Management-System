@@ -50,6 +50,37 @@ def check_payment_status(tenant_id: int) -> str:
 
 
 @tool
+def get_overdue_payment_overview() -> str:
+    """
+    Retrieve a portfolio-wide overdue rent summary.
+    Use this for landlord or dashboard questions asking who is overdue and how much is owed overall.
+    """
+    summary = payment_tracker.get_portfolio_overdue_summary()
+    overdue_payments = summary["payments"]
+
+    lines = [
+        "Portfolio Overdue Summary:",
+        f"- Overdue Payments: {summary['overdue_count']}",
+        f"- Total Owed: {summary['total_overdue']} {'/'.join(summary['currencies'])}",
+    ]
+
+    if overdue_payments:
+        lines.append("- Overdue Accounts:")
+        for payment in overdue_payments:
+            due_date = payment["due_date"].date().isoformat() if payment["due_date"] else "unknown"
+            reference = payment["reference"] or "no reference"
+            lines.append(
+                f"  - Tenant {payment['tenant_id']} / Property {payment['property_id']}: "
+                f"{payment['amount']} {payment['currency']} due {due_date} "
+                f"(Payment {payment['payment_id']}, Ref: {reference})"
+            )
+    else:
+        lines.append("- Overdue Accounts: none")
+
+    return "\n".join(lines)
+
+
+@tool
 def mark_rent_as_paid(payment_id: int) -> str:
     """
     Mark a specific payment record as 'paid'.

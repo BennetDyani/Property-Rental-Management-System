@@ -136,3 +136,27 @@ def get_tenant_payment_summary(tenant_id: int) -> dict[str, Any]:
         "overdue_count": overdue_count,
         "payment_count": len(payments),
     }
+
+
+def get_portfolio_overdue_summary() -> dict[str, Any]:
+    """Generate an overdue rent summary across the full portfolio."""
+    overdue_payments = get_overdue_payments()
+    total_overdue = sum((payment.amount for payment in overdue_payments), start=Decimal("0.00"))
+
+    return {
+        "overdue_count": len(overdue_payments),
+        "total_overdue": total_overdue,
+        "currencies": sorted({payment.currency for payment in overdue_payments}) or ["ZAR"],
+        "payments": [
+            {
+                "payment_id": payment.id,
+                "tenant_id": payment.tenant_id,
+                "property_id": payment.property_id,
+                "amount": payment.amount,
+                "currency": payment.currency,
+                "due_date": payment.due_date,
+                "reference": payment.reference,
+            }
+            for payment in overdue_payments
+        ],
+    }

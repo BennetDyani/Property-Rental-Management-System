@@ -1,0 +1,250 @@
+{
+  "name": "RentalAI Telegram Bridge",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "telegram-rentalai",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "telegram-webhook",
+      "name": "Telegram Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        260
+      ],
+      "webhookId": "telegram-rentalai-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const update = $json.body ?? $json;\nconst message = update.message ?? update.edited_message ?? null;\nconst text = message?.text ?? '';\nconst chatId = message?.chat?.id ?? null;\nconst fromUser = message?.from ?? {};\nconst username = fromUser.username ?? null;\nconst firstName = fromUser.first_name ?? '';\nconst lastName = fromUser.last_name ?? '';\nconst fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;\n\nreturn [{\n  json: {\n    telegram_update_id: update.update_id ?? null,\n    chat_id: chatId,\n    message: text,\n    telegram_user_id: fromUser.id ?? null,\n    telegram_username: username,\n    telegram_full_name: fullName,\n    thread_id: chatId ? `telegram_${chatId}` : 'telegram_unknown',\n    tenant_id: null\n  }\n}];"
+      },
+      "id": "normalize-telegram",
+      "name": "Normalize Telegram Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-chat-id",
+              "leftValue": "={{$json.chat_id}}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists"
+              }
+            },
+            {
+              "id": "has-text",
+              "leftValue": "={{$json.message}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "valid-message",
+      "name": "Valid Telegram Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.API_BASE_URL ? $env.API_BASE_URL + '/chat' : 'http://localhost:8000/chat'}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  message: $json.message,\n  thread_id: $json.thread_id,\n  tenant_id: $json.tenant_id\n} }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-backend-chat",
+      "name": "Call Backend Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const backend = $json;\nconst incoming = $('Normalize Telegram Update').first().json;\n\nreturn [{\n  json: {\n    chat_id: incoming.chat_id,\n    response: backend.response ?? 'No response from backend.',\n    thread_id: backend.thread_id ?? incoming.thread_id,\n    telegram_user_id: incoming.telegram_user_id,\n    telegram_username: incoming.telegram_username,\n    telegram_full_name: incoming.telegram_full_name\n  }\n}];"
+      },
+      "id": "prepare-telegram-reply",
+      "name": "Prepare Telegram Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage'}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  chat_id: $json.chat_id,\n  text: $json.response\n} }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "send-telegram-message",
+      "name": "Send Telegram Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, ignored: true } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ignore",
+      "name": "Respond Ignore",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        360
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram Update": {
+      "main": [
+        [
+          {
+            "node": "Valid Telegram Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Telegram Message?": {
+      "main": [
+        [
+          {
+            "node": "Call Backend Chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ignore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Backend Chat": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Telegram Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "rentalai-telegram-bridge",
+  "tags": []
+}

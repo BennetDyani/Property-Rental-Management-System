@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from langchain_ollama import OllamaEmbeddings
+from src.config import settings
 from src.rag.chunking import DocumentChunk, chunk_documents
 from src.rag.document import MultimodalDocument
 from src.rag.vector_store import VectorStore
@@ -43,11 +44,13 @@ class MultimodalRetriever:
     def __init__(
             self,
             vector_store: VectorStore | None = None,
-            embedding_model_name: str = "nomic-embed-text",
-            ollama_base_url: str = "http://localhost:11434"
+            embedding_model_name: str | None = None,
+            ollama_base_url: str | None = None
     ):
         self.chunks: list[DocumentChunk] = []
         self.vector_store = vector_store
+        embedding_model_name = embedding_model_name or settings.embedding_model
+        ollama_base_url = ollama_base_url or settings.ollama_base_url
 
         # Initialize the embedding model for semantic search
         try:
@@ -120,13 +123,18 @@ class MultimodalRetriever:
                 )
 
                 for db_chunk, score in db_results:
+                    metadata = dict(db_chunk.metadata_json or {})
+                    metadata.setdefault("source", db_chunk.document.source_path)
+                    metadata.setdefault("modality", db_chunk.document.modality)
+
                     # Convert DB Model to DTO
                     dto_chunk = DocumentChunk(
                         chunk_id=db_chunk.chunk_id,
                         document_id=str(db_chunk.document_id),
                         source=db_chunk.document.source_path,
+                        modality=db_chunk.document.modality,
                         text=db_chunk.content,
-                        metadata=db_chunk.metadata_json or {},
+                        metadata=metadata,
                     )
                     vector_results.append({
                         "chunk": dto_chunk,

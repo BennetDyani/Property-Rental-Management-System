@@ -4,6 +4,7 @@ from typing import Any
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 
+from src.config import settings
 from src.agents.tools import (
     log_maintenance_issue,
     get_maintenance_overview,
@@ -20,10 +21,11 @@ class MaintenanceAgent:
     def __init__(
             self,
             retriever: MultimodalRetriever,
-            model_name: str = "gpt-oss-120b",
+            model_name: str | None = None,
     ):
         self.retriever = retriever
-        self.llm = ChatGroq(model=model_name)
+        model_name = model_name or settings.groq_model
+        self.llm = ChatGroq(model=model_name, groq_api_key=settings.groq_api_key)
 
         self.tools = [
             log_maintenance_issue,
@@ -38,10 +40,11 @@ class MaintenanceAgent:
             "Always confirm the details of the issue before logging it."
         )
 
-        self.agent = create_react_agent(self.llm, self.tools, state_modifier=system_message)
+        self.agent = create_react_agent(self.llm, self.tools, prompt=system_message)
 
     def process_query(self, query: str, tenant_id: int | None = None) -> str:
-        results = self.retriever.search(query)
+        filters = {"tenant_id": tenant_id} if tenant_id is not None else None
+        results = self.retriever.search(query, filters=filters)
         rag_context = prepare_rag_prompt(query, results)
 
         enhanced_input = (
