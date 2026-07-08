@@ -3,4 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="uv (Property-Rental-Management-System)" />
   </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="uv (property_rental_management)" project-jdk-type="Python SDK" />
 </project>

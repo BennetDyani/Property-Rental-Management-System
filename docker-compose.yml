@@ -39,5 +39,20 @@ services:
       sh -c "pip install -e . &&
       jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token= --NotebookApp.password="
 
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n_automation
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - app
+
 volumes:
   rental_db_data:
+  n8n_data:

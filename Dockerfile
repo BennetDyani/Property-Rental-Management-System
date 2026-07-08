@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml README.md main.py /app/
 
-    RUN pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install -e .
 
 EXPOSE 8888

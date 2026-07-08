@@ -1,47 +1,43 @@
-from threading import Lock
+from __future__ import annotations
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+import os
+from typing import Generator
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
 
-from src.config import settings
+# Use environment variable or fallback to local default
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://postgres:postgres@localhost:5433/rental_ai"
+)
 
+# Create the engine
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    echo=False
+)
+
+# Session factory - simple and non-recursive
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
     pass
 
+def init_database():
+    """Initialize the database schema and enable required extensions."""
+    with engine.connect() as conn:
+        # 1. Enable pgvector extension
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
 
-engine = create_engine(settings.database_url, echo=settings.debug)
-_schema_lock = Lock()
-_schema_initialized = False
-
-
-def init_database() -> None:
-    global _schema_initialized
-
-    if _schema_initialized:
-        return
-
-    with _schema_lock:
-        if _schema_initialized:
-            return
-
-        import src.models  # Ensure model metadata is registered before create_all.
-
+        # 2. Create all tables defined in Base
         Base.metadata.create_all(bind=engine)
-        _schema_initialized = True
+        print("✅ Database initialized successfully.")
 
-
-class _InitializingSessionMaker(sessionmaker):
-    def __call__(self, **local_kw):
-        init_database()
-        return super().__call__(**local_kw)
-
-
-SessionLocal = _InitializingSessionMaker(bind=engine, autoflush=False, autocommit=False)
-
-
-def get_db():
-    init_database()
+def get_db() -> Generator[Session, None, None]:
+    """Dependency for providing a database session."""
     db = SessionLocal()
     try:
         yield db
