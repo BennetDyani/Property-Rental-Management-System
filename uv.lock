@@ -1838,6 +1838,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "skills" },
     { name = "sqlalchemy" },
     { name = "streamlit" },
     { name = "uvicorn" },
@@ -1865,6 +1866,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "skills", specifier = ">=0.3.0" },
     { name = "sqlalchemy", specifier = ">=2.0.35" },
     { name = "streamlit", specifier = ">=1.59.0" },
     { name = "uvicorn", specifier = ">=0.50.2" },
@@ -2374,6 +2376,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "skills"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/3c/59412b11cf1a5d777135ef2157aa19d1fa9cfce272f267674d5304fd869e/skills-0.3.0.zip", hash = "sha256:dd50dafe4e9d86f21e51904447eadc254daeac154bf6e62e6ded947da3a7f303", size = 37199, upload-time = "2015-01-13T22:28:22.143Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/62/2e820f2deee0793a2a528c999b164826a16cf361ea02de1e50431f1810e5/skills-0.3.0-py2.py3-none-any.whl", hash = "sha256:3dab72c67e140eea49b2318371ecb402474d88550835458cfd37ae13c07d18d2", size = 33498, upload-time = "2015-01-13T22:28:19.582Z" },
 ]
 
 [[package]]

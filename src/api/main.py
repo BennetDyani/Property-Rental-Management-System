@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -25,6 +26,21 @@ app = FastAPI(title="AI Property Rental Management API")
 # --- Global State (Singletons) ---
 # We initialize these once at startup to avoid reloading models every request
 state = {}
+
+
+def _build_document_key(
+    filename: str,
+    tenant_id: Optional[int],
+    property_id: Optional[int],
+    doc_type: Optional[str],
+) -> str:
+    """Build a stable ID so re-uploads of the same logical document replace old versions."""
+    stem = Path(filename).stem
+    safe_stem = re.sub(r"[^a-zA-Z0-9_-]+", "_", stem).strip("_").lower() or "document"
+    tenant_part = f"tenant-{tenant_id}" if tenant_id is not None else "tenant-any"
+    property_part = f"property-{property_id}" if property_id is not None else "property-any"
+    type_part = re.sub(r"[^a-zA-Z0-9_-]+", "_", (doc_type or "general")).strip("_").lower() or "general"
+    return f"{tenant_part}__{property_part}__{type_part}__{safe_stem}"
 
 
 @app.on_event("startup")
@@ -116,7 +132,16 @@ async def ingest_document(
 
         # 2. Run the ingestion pipeline
         ingestor = state["ingestor"]
-        metadata = {"document_type": doc_type}
+        metadata = {
+            "document_type": doc_type,
+            "original_filename": file.filename,
+            "document_id": _build_document_key(
+                filename=file.filename,
+                tenant_id=tenant_id,
+                property_id=property_id,
+                doc_type=doc_type,
+            ),
+        }
 
         # Process the file
         chunks = ingestor.ingest_files(

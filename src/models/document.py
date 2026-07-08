@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
 from src.database import Base
+from src.config import settings
 
 
 class Document(Base):
@@ -45,8 +46,7 @@ class DocumentChunk(Base):
     chunk_id: Mapped[str] = mapped_column(String(255))
     content: Mapped[str] = mapped_column(Text)
 
-    # 1536 is the standard dimension for many common embedding models (e.g., OpenAI, Ollama)
-    embedding: Mapped[Vector] = mapped_column(Vector(1536))
+    embedding: Mapped[Vector] = mapped_column(Vector(settings.embedding_dimensions))
 
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     chunk_index: Mapped[int] = mapped_column()

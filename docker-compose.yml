@@ -18,11 +18,13 @@ services:
       timeout: 5s
       retries: 20
 
-  app:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: property_app
+    container_name: property_api
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -34,10 +36,23 @@ services:
     volumes:
       - ./:/app
     ports:
-      - "8888:8888"
-    command: >
-      sh -c "pip install -e . &&
-      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token= --NotebookApp.password="
+      - "8000:8000"
+    command: python main.py
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: property_ui
+    depends_on:
+      - api
+    environment:
+      API_BASE_URL: http://api:8000
+    volumes:
+      - ./:/app
+    ports:
+      - "8501:8501"
+    command: streamlit run src/ui/app.py --server.address=0.0.0.0 --server.port=8501
 
   n8n:
     image: n8nio/n8n:latest
@@ -51,7 +66,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
-      - app
+      - api
 
 volumes:
   rental_db_data:

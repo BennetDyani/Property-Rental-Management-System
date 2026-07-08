@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
+from src.config import settings
 from src.rag.retriever import MultimodalRetriever
 from src.agents.tenant_agent import TenantAgent
 from src.agents.payment_agent import PaymentAgent
@@ -34,10 +35,11 @@ class PropertyOrchestrator:
     def __init__(
         self,
         retriever: MultimodalRetriever,
-        model_name: str = "gpt-oss-120b",
+        model_name: str | None = None,
     ):
         # Use Groq for the router for instant classification
-        self.llm = ChatGroq(model=model_name)
+        model_name = model_name or settings.groq_model
+        self.llm = ChatGroq(model=model_name, groq_api_key=settings.groq_api_key)
 
         # Initialize all specialized agents (now using Groq internally)
         self.tenant_agent = TenantAgent(retriever, model_name=model_name)
@@ -45,9 +47,10 @@ class PropertyOrchestrator:
         self.maintenance_agent = MaintenanceAgent(retriever, model_name=model_name)
         self.forecaster_agent = ForecastingAgent(retriever, model_name=model_name)
 
+        self.memory = MemorySaver()
+
         # Build the graph
         self.graph = self._build_graph()
-        self.memory = MemorySaver()
 
     def _build_graph(self):
         workflow = StateGraph(AgentState)

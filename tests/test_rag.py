@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZipFile
 
+from src.rag import document as document_module
+from src.rag import retriever as retriever_module
+from src.rag import vector_store as vector_store_module
 from src.rag import (
     MultimodalDocument,
     MultimodalRetriever,
@@ -39,6 +43,25 @@ def test_load_document_supports_pdf_word_and_image_assets(tmp_path: Path):
 
     image_path = tmp_path / "inspection.png"
     image_path.write_bytes(b"\x89PNG\r\n\x1a\nmock")
+
+    class StubPdfPage:
+        def extract_text(self):
+            return "July rent received in full"
+
+    class StubPdfReader:
+        def __init__(self, path):
+            self.pages = [StubPdfPage()]
+
+    class StubParagraph:
+        def __init__(self, text):
+            self.text = text
+
+    class StubDocxDocument:
+        def __init__(self, path):
+            self.paragraphs = [StubParagraph("Leaking tap in unit 4B needs approval")]
+
+    document_module.PdfReader = StubPdfReader
+    document_module.DocxDocument = StubDocxDocument
 
     pdf_document = load_document(pdf_path)
     docx_document = load_document(docx_path)
@@ -109,7 +132,67 @@ def test_multimodal_retriever_ranks_relevant_context_and_builds_prompt(tmp_path:
     assert results[0].chunk.modality == "image"
     assert "parking" in results[0].matched_terms
 
-    prompt = prepare_rag_prompt("When can tenants use the rooftop garden?", retriever, top_k=2)
+    prompt = prepare_rag_prompt(
+        "When can tenants use the rooftop garden?",
+        retriever.search("When can tenants use the rooftop garden?", top_k=2),
+    )
     assert "Question: When can tenants use the rooftop garden?" in prompt
     assert "[1]" in prompt
     assert "rooftop garden" in prompt
+
+
+def test_vector_store_semantic_search_eager_loads_parent_document(monkeypatch):
+    captured = {}
+
+    class FakeExecutionResult:
+        def all(self):
+            return []
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement):
+            captured["statement"] = statement
+            return FakeExecutionResult()
+
+    monkeypatch.setattr(vector_store_module, "SessionLocal", lambda: FakeSession())
+
+    store = vector_store_module.VectorStore()
+    store.search_similar([0.1, 0.2, 0.3], top_k=1)
+
+    options = getattr(captured["statement"], "_with_options", ())
+    assert any("document" in str(getattr(option, "path", "")) for option in options)
+
+
+def test_multimodal_retriever_converts_semantic_results_with_document_metadata(monkeypatch):
+    fake_document = SimpleNamespace(source_path="lease-a1.txt", modality="text")
+    fake_db_chunk = SimpleNamespace(
+        chunk_id="lease-a1-chunk-0",
+        document_id=1,
+        document=fake_document,
+        content="Lease for Unit A1 includes parking.",
+        metadata_json={"category": "lease"},
+    )
+
+    class FakeEmbedder:
+        def embed_query(self, query: str):
+            return [0.1, 0.2, 0.3]
+
+    class FakeVectorStore:
+        def search_similar(self, query_embedding, top_k, filters=None):
+            return [(fake_db_chunk, 0.91)]
+
+    monkeypatch.setattr(retriever_module, "OllamaEmbeddings", lambda model, base_url: FakeEmbedder())
+
+    retriever = MultimodalRetriever(vector_store=FakeVectorStore())
+    results = retriever.search("parking", top_k=1)
+
+    assert len(results) == 1
+    assert results[0].chunk.modality == "text"
+    assert results[0].chunk.source == "lease-a1.txt"
+    assert results[0].chunk.metadata["source"] == "lease-a1.txt"
+    assert results[0].chunk.metadata["modality"] == "text"

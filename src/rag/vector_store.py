@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from sqlalchemy import select, and_
+from sqlalchemy.orm import joinedload
 
 from src.database import SessionLocal
 from src.models.document import Document, DocumentChunk
@@ -26,11 +27,27 @@ class VectorStore:
         Saves a document and its corresponding chunks with embeddings to the database.
         """
         with SessionLocal() as session:
+            original_filename = str(doc.metadata.get("original_filename") or doc.source.name)
+            document_type = doc.metadata.get("document_type")
+
+            # Replace previously ingested versions of the same logical document.
+            existing_query = select(Document).where(
+                Document.filename == original_filename,
+                Document.tenant_id == tenant_id,
+                Document.property_id == property_id,
+                Document.document_type == document_type,
+            )
+            existing_docs = session.execute(existing_query).scalars().all()
+            for existing in existing_docs:
+                session.delete(existing)
+            session.flush()
+
             # 1. Create the Document record
             db_doc = Document(
                 document_id=doc.document_id,
                 source_path=str(doc.source),
-                filename=doc.source.name,
+                filename=original_filename,
+                document_type=document_type,
                 modality=doc.modality,
                 tenant_id=tenant_id,
                 property_id=property_id,
@@ -66,17 +83,31 @@ class VectorStore:
         with SessionLocal() as session:
             # Use the L2 distance or Cosine distance provided by pgvector
             # <-> is L2 distance, <=> is cosine distance
+            distance = DocumentChunk.embedding.cosine_distance(query_embedding).label("distance")
             query = select(
                 DocumentChunk,
-                DocumentChunk.embedding.cosine_distance(query_embedding).label("distance")
-            )
+                distance
+            ).join(Document, DocumentChunk.document_id == Document.id).options(joinedload(DocumentChunk.document))
 
             if filters:
+                tenant_id = filters.get("tenant_id")
+                property_id = filters.get("property_id")
+                document_type = filters.get("document_type")
+
+                if tenant_id is not None:
+                    query = query.where(Document.tenant_id == tenant_id)
+                if property_id is not None:
+                    query = query.where(Document.property_id == property_id)
+                if document_type is not None:
+                    query = query.where(Document.document_type == str(document_type))
+
                 # Basic JSON filter for metadata
                 for key, value in filters.items():
+                    if key in {"tenant_id", "property_id", "document_type"}:
+                        continue
                     query = query.where(DocumentChunk.metadata_json[key].astext == str(value))
 
-            query = query.order_by("distance").limit(top_k)
+            query = query.order_by(distance, Document.created_at.desc()).limit(top_k)
 
             results = session.execute(query).all()
 

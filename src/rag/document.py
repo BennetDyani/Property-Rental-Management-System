@@ -192,7 +192,7 @@ def load_document(
             modality = "unknown"
 
     return MultimodalDocument(
-        document_id=path.stem,
+        document_id=str(doc_metadata.get("document_id") or path.stem),
         source=path,
         content=content,
         modality=modality,

@@ -4,6 +4,7 @@ from typing import Any
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 
+from src.config import settings
 from src.agents.tools import (
     get_tenant_details,
     check_payment_status,
@@ -21,10 +22,11 @@ class TenantAgent:
     def __init__(
             self,
             retriever: MultimodalRetriever,
-            model_name: str = "gpt-oss-120b",
+            model_name: str | None = None,
     ):
         self.retriever = retriever
-        self.llm = ChatGroq(model=model_name)
+        model_name = model_name or settings.groq_model
+        self.llm = ChatGroq(model=model_name, groq_api_key=settings.groq_api_key)
 
         self.tools = [
             get_tenant_details,
@@ -46,7 +48,10 @@ class TenantAgent:
 
     def ask(self, query: str, tenant_id: int | None = None, context_filters: dict | None = None) -> str:
         # 1. RAG Step
-        results = self.retriever.search(query, filters=context_filters)
+        filters = dict(context_filters or {})
+        if tenant_id is not None:
+            filters["tenant_id"] = tenant_id
+        results = self.retriever.search(query, filters=filters or None)
         rag_context = prepare_rag_prompt(query, results)
 
         enhanced_input = (
